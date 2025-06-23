@@ -20,6 +20,7 @@ $(document).ready(function () {
       let uid = profile.userId
       let pictureUrl = profile.pictureUrl
       checkuser(uid)
+      $('#home').data('imguser', pictureUrl);
       $('#home').data('uuid', uid);
       $('.imgpro').attr('src', pictureUrl);
     } catch (error) {
