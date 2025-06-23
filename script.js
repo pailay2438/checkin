@@ -3,7 +3,7 @@ $(document).ready(function () {
   initializeLiff()
   async function initializeLiff() {
     try {
-      await liff.init({ liffId: "2007625053-KVbDO64G" })
+      await liff.init({ liffId: "2007625542-wQkKVGv7" })
       if (liff.isLoggedIn()) {
         getUserProfile()
       } else {
