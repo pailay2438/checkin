@@ -133,7 +133,19 @@ function savecheckin(itemData) {
   }
 ];
 
-liff.sendMessages([message]).then(() => {liff.closeWindow();})
+liff.sendMessages([message])
+  .then(() => {
+    liff.closeWindow();
+  })
+  .catch(error => {
+    Swal.fire({
+      icon: 'error',
+      title: 'ส่งข้อความไม่สำเร็จ',
+      text: `เกิดข้อผิดพลาด: ${error.message || error}`,
+      confirmButtonText: 'ตกลง'
+    });
+  });
+
         });
       } else {
         Swal.fire({
