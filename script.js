@@ -121,7 +121,7 @@ function savecheckin(itemData) {
                     timer: 2000,
                     showConfirmButton: false
                 }).then(() => {
-                    let message = [
+                    const messages = [
                         {
                             type: 'text',
                             text: res.msg
@@ -133,7 +133,7 @@ function savecheckin(itemData) {
                         }
                     ];
 
-                    liff.sendMessages([message])
+                    liff.sendMessages(messages)
                         .then(() => {
                             liff.closeWindow();
                         })
@@ -145,6 +145,7 @@ function savecheckin(itemData) {
                                 confirmButtonText: 'ตกลง'
                             });
                         });
+
 
                 });
             } else {
