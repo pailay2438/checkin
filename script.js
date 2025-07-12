@@ -121,7 +121,6 @@ function savecheckin(itemData) {
           timer: 2000,
           showConfirmButton: false
         }).then(() => {
-          showhidepage('.home');
           let messages = [
   {
     type: 'text',
