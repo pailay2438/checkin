@@ -125,7 +125,7 @@ function savecheckin(itemData) {
           let messages = [
   {
     type: 'text',
-    text: res.message
+    text: res.msg
   },
   {
     type: 'image',
