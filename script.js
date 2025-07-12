@@ -122,6 +122,38 @@ function savecheckin(itemData) {
           showConfirmButton: false
         }).then(() => {
           showhidepage('.home');
+          const messages = [
+  {
+    type: 'text',
+    text: res.message
+  },
+  {
+    type: 'image',
+    originalContentUrl: res.img,
+    previewImageUrl: res.img
+  }
+];
+
+if (liff.isInClient() && liff.isApiAvailable('sendMessages')) {
+  liff.sendMessages(messages)
+    .then(() => {
+      liff.closeWindow();
+    })
+    .catch(error => {
+      console.error('เกิดข้อผิดพลาดในการส่งข้อความและภาพ:', error);
+      liff.closeWindow();
+    });
+} else if (liff.isApiAvailable('shareTargetPicker')) {
+  liff.shareTargetPicker(messages)
+    .then(() => {
+      console.log('แชร์ข้อความและภาพผ่าน picker เรียบร้อย');
+    })
+    .catch(error => {
+      console.error('แชร์ผ่าน picker ล้มเหลว:', error);
+    });
+} else {
+  console.warn('ไม่รองรับการส่งข้อความหรือแชร์ผ่าน LIFF API นี้');
+}
         });
       } else {
         Swal.fire({
