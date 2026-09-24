@@ -4,7 +4,8 @@ const checkinState = {
     submitting: false,
     receipt: null,
     lineSent: {},
-    requestIds: {}
+    requestIds: {},
+    progress: ''
 };
 
 $(document).ready(function () {
@@ -86,7 +87,7 @@ function initializeLocation_() {
 async function checkuser(uuid) {
     showhidepage('header');
     try {
-        const res = await callApiWithTimeout_('checkuser', { uuid }, 15000);
+        const res = await checkuserWithRetry_(uuid);
         if (res.status !== 'success') {
             await Swal.fire({
                 icon: 'error',
@@ -106,8 +107,8 @@ async function checkuser(uuid) {
         console.error(error);
         await Swal.fire({
             icon: 'error',
-            title: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
-            text: 'กรุณาปิดแล้วเปิดหน้าเช็กอินอีกครั้ง',
+            title: error.name === 'AbortError' ? 'หมดเวลารอตรวจข้อมูลพนักงาน' : 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้',
+            text: 'ยังไม่ได้บันทึกเข้างาน กรุณาปิดแล้วเปิดหน้าเช็กอินอีกครั้ง',
             allowOutsideClick: false,
             confirmButtonText: 'ตกลง'
         });
@@ -129,8 +130,8 @@ $('.checkin').click(async function (event) {
         itemData.name = $('#name').val();
         if (!checkvalue(itemData, ['comment', 'imguser'])) return;
         itemData.request_id = getRequestId_(itemData.uuid);
-        showhidepage('header');
-        const res = await callApiWithTimeout_('savecheckin', itemData, 20000);
+        showhidepage('.home');
+        const res = await saveWithRetry_(itemData);
         if (res.status !== 'success') {
             showhidepage('.home');
             await Swal.fire({
@@ -163,6 +164,7 @@ $('.checkin').click(async function (event) {
         });
     } finally {
         checkinState.submitting = false;
+        checkinState.progress = '';
         updateCheckinButton_();
     }
 });
@@ -198,7 +200,41 @@ function updateCheckinButton_() {
     const disabled = !checkinState.profileReady || (!checkinState.receipt && !checkinState.hasLocation) || checkinState.submitting;
     $('.checkin')
         .prop('disabled', disabled)
-        .text(checkinState.submitting ? 'กำลังดำเนินการ...' : checkinState.receipt ? 'ส่งยืนยัน LINE อีกครั้ง' : 'บันทึกเข้างาน');
+        .text(checkinState.submitting ? (checkinState.progress || 'กำลังดำเนินการ...') : checkinState.receipt ? 'ส่งยืนยัน LINE อีกครั้ง' : 'บันทึกเข้างาน');
+}
+
+function pauseRetry_(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function checkuserWithRetry_(uuid) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try { return await callApiWithTimeout_('checkuser', { uuid }, 45000); }
+        catch (error) {
+            if (attempt === 1) throw error;
+            await pauseRetry_(1000 + Math.floor(Math.random() * 2000));
+        }
+    }
+}
+
+async function saveWithRetry_(itemData) {
+    const deadline = Date.now() + 180000;
+    let lastError;
+    // The same immutable payload/request_id is reused, even after a lost response.
+    for (let attempt = 0; attempt < 36 && Date.now() < deadline; attempt++) {
+        checkinState.progress = attempt ? 'กำลังรอคิวบันทึก (ลองใหม่ ' + attempt + ') กรุณาอย่าปิดหน้านี้' : 'กำลังบันทึกเข้างาน...';
+        updateCheckinButton_();
+        try {
+            const res = await callApiWithTimeout_('savecheckin', itemData, Math.min(45000, deadline - Date.now()));
+            const legacyBusy = res.message === 'ระบบกำลังบันทึกรายการอื่น';
+            if (res.status === 'success' || (!res.retryable && res.status !== 'busy' && !legacyBusy)) return res;
+            lastError = new Error(res.code || 'QUEUE_BUSY');
+        } catch (error) { lastError = error; }
+        if (attempt === 35) break;
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        // Jitter avoids all 15 devices retrying together in lockstep.
+        await pauseRetry_(Math.min(remaining, Math.min(8000, 1500 * Math.pow(1.35, attempt)) + Math.floor(Math.random() * 2500)));
+    }
+    throw lastError || new Error('QUEUE_WAIT_EXHAUSTED');
 }
 
 function requestStorageKey_(uuid) {
